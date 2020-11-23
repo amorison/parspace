@@ -25,14 +25,23 @@ class ParSpace:
 
     def __init__(self, **space):
         self._space = space
+        self._thunk = None
 
     def _sweeper(self):
         parnames = list(self._space.keys())
         for comb in product(*(self._space[name] for name in parnames)):
             yield dict(zip(parnames, comb))
 
-    def __call__(self, func):
-        def wrapper():
-            for comb in self._sweeper():
-                func(**comb)
-        return wrapper
+    def __iter__(self):
+        if self._thunk is None:
+            yield from self._sweeper()
+            return
+        for pars in self._sweeper():
+            yield pars, self._thunk(**pars)
+
+    def __call__(self, func=None):
+        if func is not None:
+            self._thunk = func
+            return self
+        for _ in iter(self):
+            pass

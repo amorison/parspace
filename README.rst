@@ -7,8 +7,11 @@ You can install parspace with ``pip``::
 
     $ python3 -m pip install -U --user parspace
 
-It provides a class that can be used to aumatically run a function over
-all possible combinations of a given parameter space.
+Usage as a decorator
+--------------------
+
+This package provides a class that can be used to aumatically run a function
+over all possible combinations of a given parameter space.
 
 Say that you have a problem controlled by two parameters: an aspect ratio
 ``asp`` and a density ``density``.  The following example shows how to use
@@ -65,3 +68,70 @@ and values are then the keys and values of that dictionary.
 
 
     launch_simu()
+
+
+Iterating through returned values
+---------------------------------
+
+If you care about the returned values of the wrapped function rather than on
+its side effects, you can iterate over the decorated object as shown below.
+
+.. code:: python
+
+    from parspace import ParSpace
+
+
+    @ParSpace(asp=[0.5, 1, 2],
+              density=[1, 10])
+    def calc_mass(asp, density):
+        return asp * density
+
+
+    for pars, mass in calc_mass:
+        asp = pars['asp']
+        density = pars['density']
+        print(f"Mass for aspect {asp} at density {density}: {mass}")
+
+
+Note that iterating through a bare ``ParSpace`` instance yields the parameters
+dictionary.
+
+.. code:: python
+
+    from parspace import ParSpace
+
+
+    space = ParSpace(asp=[0.5, 1, 2],
+                     density=[1, 10])
+    for pars in space:
+        print("aspect ratio {asp} and density {density}".format(**pars))
+
+
+Exploring the same space on several functions
+---------------------------------------------
+
+Provided that the iterables used to build the ``ParSpace`` instance can be
+iterated through any number of times (mind that generators can only be iterated
+through *once*), you can use that instance on several functions as follow.
+
+.. code:: python
+
+    from parspace import ParSpace
+
+
+    space = ParSpace(asp=[0.5, 1, 2],
+                     density=[1, 10])
+
+
+    @space
+    def launch_simu(asp, density):
+        print(f"aspect ratio {asp} and density {density}")
+
+
+    launch_simu()
+
+
+    for pars, mass in space(lambda asp, density: asp * density):
+        asp = pars['asp']
+        density = pars['density']
+        print(f"Mass for aspect {asp} at density {density}: {mass}")
