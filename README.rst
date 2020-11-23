@@ -135,3 +135,90 @@ through *once*), you can use that instance on several functions as follow.
         asp = pars['asp']
         density = pars['density']
         print(f"Mass for aspect {asp} at density {density}: {mass}")
+
+
+Realistic example of a script submitting jobs
+---------------------------------------------
+
+This script shows a simplistic but realistic example of what ``ParSpace``
+enables you to do.  This script is written for a particular system and is
+therefore unlikely to work for you as-is but adapting it to your use case
+should be a fairly simple task.  The function ``submit_jobs`` defines what
+should be done for one specific job and its decorated version automatically
+explore the desired parameter space.
+
+.. code:: python
+
+    #!/usr/bin/env python3
+    """Submit jobs on a PBS enabled cluster.
+
+    This script is for demonstration purpose only and offers no guarantee, please
+    adapt it to your use case.
+    """
+    from functools import lru_cache
+    from pathlib import Path
+    import json
+    import subprocess
+    import textwrap
+
+    from parspace import ParSpace
+
+
+    QSUB = '/usr/local/bin/qsub'
+    BATCH = textwrap.dedent("""\
+        #!/bin/bash
+        #PBS -N jobname
+        #PBS -l nodes=1:ppn=8
+        #PBS -q queuename
+        #PBS -j oe
+        #PBS -V
+        cd {work_dir}
+        mpirun -np 8 /path/to/executable > out.log 2> err.log
+        sync
+        exit
+        """)
+    ROOT = Path().resolve(strict=True)
+
+
+    # If you need to compute an entry parameter that depends only on a subset of
+    # all the parameters you explore, you might want to cache its result if the
+    # computation is expensive.  This isn't necessary in this simplistic case and
+    # is only for illustrative purposes.
+    @lru_cache(maxsize=None)
+    def n_horiz(aspect_ratio):
+        """Compute grid size for a given aspect ratio."""
+        return 64 * aspect_ratio
+
+
+    @ParSpace(logra=range(4, 7),
+              aspect_ratio=[2, 4, 8])
+    def submit_jobs(**pars):
+        """Create run directory, parameter file, and submit a job."""
+        case_name = 'ra_1e{logra}__asp_{aspect_ratio}'.format(**pars)
+        case_dir = ROOT / case_name
+
+        # create run directory, in this case a subdirectory "output"
+        # is also created.
+        (case_dir / 'output').mkdir(parents=True, exist_ok=True)
+
+        # generate par file, this assumes a JSON parameter file
+        asp = pars['aspect_ratio']
+        par_content = dict(rayleigh=10**pars['logra'],
+                           aspect_ratio=pars['aspect_ratio'],
+                           ny=n_horiz(asp))
+        par_file = case_dir / 'par.json'
+        with par_file.open('w') as pstream:
+            json.dump(par_content, pstream)
+
+        batch_content = BATCH.format(work_dir=case_dir)
+        batch_file = case_dir / 'batch'
+        batch_file.write_text(batch_content)
+
+        job_sub = subprocess.run((QSUB, str(batch_file)),
+                                 capture_output=True, check=True, text=True)
+        job_id = job_sub.stdout.splitlines()[-1].split('.')[0]
+        print(f"Case {case_name} treated by {job_id}")
+
+
+    if __name__ == "__main__":
+        submit_jobs()
