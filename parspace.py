@@ -27,7 +27,7 @@ class ParSpace:
         self._space = space
 
     def _sweeper(self):
-        parnames = sorted(self._space.keys())
+        parnames = list(self._space.keys())
         for comb in product(*(self._space[name] for name in parnames)):
             yield dict(zip(parnames, comb))
 
