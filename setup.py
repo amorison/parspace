@@ -5,7 +5,7 @@ with open('README.rst') as rdm:
 
 setup(
     name='parspace',
-    version='1.0.0',
+    version='1.1.0',
 
     description='Parameter space exploration utiliy.',
     long_description=README,
