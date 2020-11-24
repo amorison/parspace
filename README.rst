@@ -10,7 +10,7 @@ You can install parspace with ``pip``::
 Usage as a decorator
 --------------------
 
-This package provides a class that can be used to aumatically run a function
+This package provides a class that can be used to automatically run a function
 over all possible combinations of a given parameter space.
 
 Say that you have a problem controlled by two parameters: an aspect ratio
@@ -43,12 +43,13 @@ This code will print the following on screen::
     aspect ratio 2 and density 10
 
 In real use cases, ``launch_simu`` could e.g. perform the desired simulation or
-submit a job on a supercomputer.  The order of arguments of ``launch_simu``
-does not matter, only their names.  In other words, if its signature is instead
-``def launch_simu(density, asp)``, you would obtain the same result. On the
-other hand, defining it as ``def launch_simu(aspect, density)`` would result in
-a ``TypeError`` when calling the function as the ``asp`` argument fed to
-``ParSpace`` does not match any argument of ``launch_simu``.
+submit a job on a supercomputer (see below for a realistic example of that).
+The order of arguments of ``launch_simu`` does not matter, only their names.
+In other words, if its signature is instead ``def launch_simu(density, asp)``,
+you would obtain the same result. On the other hand, defining it as ``def
+launch_simu(aspect, density)`` would result in a ``TypeError`` when calling the
+decorated function as the ``asp`` argument fed to ``ParSpace`` does not match
+any argument of ``launch_simu``.
 
 If you have a large number of parameters, you might prefer defining
 ``launch_simu`` as taking a dictionary of keyword arguments.  Parameter names
@@ -145,14 +146,14 @@ enables you to do.  This script is written for a particular system and is
 therefore unlikely to work for you as-is but adapting it to your use case
 should be a fairly simple task.  The function ``submit_jobs`` defines what
 should be done for one specific job and its decorated version automatically
-explore the desired parameter space.
+explores the desired parameter space.
 
 .. code:: python
 
     #!/usr/bin/env python3
     """Submit jobs on a PBS enabled cluster.
 
-    This script is for demonstration purpose only and offers no guarantee, please
+    This script is for demonstration purposes only and offers no guarantee, please
     adapt it to your use case.
     """
     from functools import lru_cache
@@ -183,7 +184,7 @@ explore the desired parameter space.
     # If you need to compute an entry parameter that depends only on a subset of
     # all the parameters you explore, you might want to cache its result if the
     # computation is expensive.  This isn't necessary in this simplistic case and
-    # is only for illustrative purposes.
+    # is for illustrative purposes only.
     @lru_cache(maxsize=None)
     def n_horiz(aspect_ratio):
         """Compute grid size for a given aspect ratio."""
@@ -197,11 +198,10 @@ explore the desired parameter space.
         case_name = 'ra_1e{logra}__asp_{aspect_ratio}'.format(**pars)
         case_dir = ROOT / case_name
 
-        # create run directory, in this case a subdirectory "output"
-        # is also created.
+        # Create run directory, here a subdirectory "output" is also created.
         (case_dir / 'output').mkdir(parents=True, exist_ok=True)
 
-        # generate par file, this assumes a JSON parameter file
+        # Generate par file, this example assumes a JSON parameter file.
         asp = pars['aspect_ratio']
         par_content = dict(rayleigh=10**pars['logra'],
                            aspect_ratio=pars['aspect_ratio'],
@@ -210,10 +210,14 @@ explore the desired parameter space.
         with par_file.open('w') as pstream:
             json.dump(par_content, pstream)
 
+        # Generate batch submission script. You can use the same approach as what
+        # is done for the working directory to control other job parameters (such
+        # as the number of cores) on a case-by-case basis.
         batch_content = BATCH.format(work_dir=case_dir)
         batch_file = case_dir / 'batch'
         batch_file.write_text(batch_content)
 
+        # Call qsub and print the job number.
         job_sub = subprocess.run((QSUB, str(batch_file)),
                                  capture_output=True, check=True, text=True)
         job_id = job_sub.stdout.splitlines()[-1].split('.')[0]
